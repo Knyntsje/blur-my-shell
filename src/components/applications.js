@@ -3,15 +3,13 @@ import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { ApplicationsService } from '../dbus/services.js';
-import { PaintSignals } from '../conveniences/paint_signals.js';
-import { DummyPipeline } from '../conveniences/dummy_pipeline.js';
+import { Pipeline } from "../conveniences/pipeline.js";
 
 export const ApplicationsBlur = class ApplicationsBlur {
     constructor(connections, settings, effects_manager) {
         this.connections = connections;
         this.settings = settings;
         this.effects_manager = effects_manager;
-        this.paint_signals = new PaintSignals(connections);
 
         // stores every blurred meta window
         this.meta_window_map = new Map();
@@ -145,9 +143,13 @@ export const ApplicationsBlur = class ApplicationsBlur {
             _ => this.check_blur(meta_window)
         );
 
-        // update the position and size when the window size changes
+        // update the clip when the window size or position changes
         this.connections.connect(
             meta_window, 'size-changed',
+            _ => this.update_size(pid)
+        );
+        this.connections.connect(
+            meta_window, 'position-changed',
             _ => this.update_size(pid)
         );
 
@@ -167,11 +169,12 @@ export const ApplicationsBlur = class ApplicationsBlur {
             const meta_window = this.meta_window_map.get(pid);
             const blur_actor = meta_window.blur_actor;
             if (blur_actor) {
-                const allocation = this.compute_allocation(meta_window);
-                blur_actor.x = allocation.x;
-                blur_actor.y = allocation.y;
-                blur_actor.width = allocation.width;
-                blur_actor.height = allocation.height;
+                const frame_rect = meta_window.get_frame_rect();
+                const buffer_rect = meta_window.get_buffer_rect();
+                blur_actor.x = -buffer_rect.x;
+                blur_actor.y = -buffer_rect.y;
+                // set_clip(x-offset, y-offset, width, height)
+                blur_actor.set_clip(frame_rect.x, frame_rect.y, frame_rect.width, frame_rect.height);
             }
         } else
             // the pid was visibly not removed
@@ -222,23 +225,17 @@ export const ApplicationsBlur = class ApplicationsBlur {
         const pid = meta_window.bms_pid;
         const window_actor = meta_window.get_compositor_private();
 
-        const pipeline = new DummyPipeline(this.effects_manager, this.settings.applications);
-        let [blur_actor, bg_manager] = pipeline.create_background_with_effect(
-            window_actor, 'bms-application-blurred-widget'
+        meta_window.bg_manager = [];
+        const pipeline = new Pipeline(this.effects_manager, global.blur_my_shell._pipelines_manager, this.settings.applications.PIPELINE);
+        let blur_actor = pipeline.create_background_with_effects(
+            0,
+            meta_window.bg_manager,
+            window_actor,
+            'bms-application-blurred-widget',
+            true
         );
 
         meta_window.blur_actor = blur_actor;
-        meta_window.bg_manager = bg_manager;
-
-        // if hacks are selected, force to repaint the window
-        if (this.settings.HACKS_LEVEL === 1) {
-            this._log("hack level 1");
-
-            this.paint_signals.disconnect_all_for_actor(blur_actor);
-            this.paint_signals.connect(blur_actor, pipeline.effect);
-        } else {
-            this.paint_signals.disconnect_all_for_actor(blur_actor);
-        }
 
         // make sure window is blurred in overview
         if (this.settings.applications.BLUR_ON_OVERVIEW)
@@ -392,7 +389,11 @@ export const ApplicationsBlur = class ApplicationsBlur {
         if (meta_window) {
             let window_actor = meta_window.get_compositor_private();
             let blur_actor = meta_window.blur_actor;
-            let bg_manager = meta_window.bg_manager;
+            if (!meta_window.bg_manager) {
+                this._warn(`no bg_manager for pid ${pid}`);
+                return;
+            }
+            let bg_manager = meta_window.bg_manager[0];
 
             if (blur_actor && window_actor) {
                 // reset the opacity
@@ -410,7 +411,6 @@ export const ApplicationsBlur = class ApplicationsBlur {
                 delete meta_window.bg_manager;
 
                 // disconnect the signals of the window actor
-                this.paint_signals.disconnect_all_for_actor(blur_actor);
                 this.connections.disconnect_all_for(window_actor);
             }
         }
@@ -441,11 +441,14 @@ export const ApplicationsBlur = class ApplicationsBlur {
         });
 
         this.connections.disconnect_all();
-        this.paint_signals.disconnect_all();
     }
 
     _log(str) {
         if (this.settings.DEBUG)
             console.log(`[Blur my Shell > applications] ${str}`);
+    }
+
+    _warn(str) {
+        console.warn(`[Blur my Shell > applications] ${str}`);
     }
 };

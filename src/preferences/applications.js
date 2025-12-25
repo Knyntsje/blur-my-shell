@@ -30,6 +30,7 @@ export const Applications = GObject.registerClass({
     Template: GLib.uri_resolve_relative(import.meta.url, '../ui/applications.ui', GLib.UriFlags.NONE),
     InternalChildren: [
         'blur',
+        'pipeline_choose_row',
         'sigma',
         'brightness',
         'opacity',
@@ -42,16 +43,23 @@ export const Applications = GObject.registerClass({
         'add_window_blacklist'
     ],
 }, class Applications extends Adw.PreferencesPage {
-    constructor(preferences, preferences_window) {
+    constructor(preferences, preferences_window, pipelines_manager, pipelines_page) {
         super({});
         this._preferences_window = preferences_window;
 
         this.preferences = preferences;
+        this.pipelines_manager = pipelines_manager;
+        this.pipelines_page = pipelines_page;
 
         this.preferences.applications.settings.bind(
             'blur', this._blur, 'active',
             Gio.SettingsBindFlags.DEFAULT
         );
+
+        this._pipeline_choose_row.initialize(
+            this.preferences.applications, this.pipelines_manager, this.pipelines_page
+        );
+
         this.preferences.applications.settings.bind(
             'opacity', this._opacity, 'value',
             Gio.SettingsBindFlags.DEFAULT
