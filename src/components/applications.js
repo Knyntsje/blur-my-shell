@@ -420,8 +420,10 @@ export const ApplicationsBlur = class ApplicationsBlur {
     }
 
     change_blur_type() {
+        this._log("resetting...");
+
         this.disable();
-        this.enable();
+        setTimeout(_ => this.enable(), 1);
     }
 
     change_pipeline() {
