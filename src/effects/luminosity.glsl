@@ -21,20 +21,11 @@ vec3 hsl_to_rgb(vec3 c) {
 void main() {
     vec4 background = texture2D(tex, cogl_tex_coord_in[0].st);
 
-    // Fill 1: Set the luminosity to a consistent value.
     vec3 hsl = rgb_to_hsl(background.rgb);
     hsl.z = target_lum;
     vec3 new_lum = hsl_to_rgb(hsl);
 
     background.rgb = mix(background.rgb, new_lum, lum_blend);
-
-    // Fill 2: Darken everything. Equivalent of #cfcfcf with PLUS DARKER blend mode at 66% opacity
-    /* TODO: This is only helpful for dark themes. The color effect can't accomplish the same thing, so I should probably make a new effect
-       for it instead of joining it with this. */
-    vec3 fill2 = vec3(0.811, 0.811, 0.811); // #cfcfcf
-    // Plus Darker: background + fill - 1 (clamped to 0)
-    vec3 darkened = max(background.rgb + fill2 - vec3(1.0), vec3(0.0));
-    background.rgb = mix(background.rgb, darkened, 0.66);
 
     cogl_color_out = background;
 }
