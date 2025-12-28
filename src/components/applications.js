@@ -422,12 +422,12 @@ export const ApplicationsBlur = class ApplicationsBlur {
     // TODO: Is there a better way to refresh?
     change_blur_type() {
         this.disable();
-        this.enable()
+        this.enable();
     }
 
     change_pipeline() {
         this.disable();
-        this.enable()
+        this.enable();
     }
 
     /// Removes the blur actor to make a blurred window become normal again.
