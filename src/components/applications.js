@@ -165,6 +165,18 @@ export const ApplicationsBlur = class ApplicationsBlur {
         );
 
         this.check_blur(meta_window);
+
+        if (this.settings.applications.STATIC_BLUR && meta_window.get_client_type() === Meta.WindowClientType.X11) {
+            const window_actor = meta_window.get_compositor_private();
+            window_actor.connect('child-added', _ => {
+                if (!meta_window.blur_actor) {
+                    this._warn("can't move blur actor to back, it doesn't exist");
+                    return;
+                }
+
+                window_actor.set_child_below_sibling(meta_window.blur_actor, null);
+            });
+        }
     }
 
     /// Updates the size of the blur actor associated to a meta window from its pid.
@@ -440,10 +452,6 @@ export const ApplicationsBlur = class ApplicationsBlur {
         if (meta_window) {
             let window_actor = meta_window.get_compositor_private();
             let blur_actor = meta_window.blur_actor;
-            if (!meta_window.bg_manager) {
-                this._warn(`no bg_manager on blur destruction for pid ${pid}`);
-                return;
-            }
             let bg_manager = meta_window.bg_manager;
 
             if (blur_actor && window_actor) {
