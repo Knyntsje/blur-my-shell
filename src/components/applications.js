@@ -187,14 +187,31 @@ export const ApplicationsBlur = class ApplicationsBlur {
             const blur_actor = meta_window.blur_actor;
             if (blur_actor) {
                 if (this.settings.applications.STATIC_BLUR) {
-                    const scale = this.compute_scale(meta_window);
-                    // TODO: I tested this on various scaling levels with and without this variable, and it didn't seem to make a difference.
+                    const bg_manager = meta_window.bg_manager;
+                    const bg_actor_monitor_index = bg_manager.backgroundActor.monitor;
+                    const window_monitor_index = meta_window.get_monitor();
+                    const monitor = Main.layoutManager.monitors[window_monitor_index];
+
+                    if (bg_actor_monitor_index !== window_monitor_index) {
+                        this._log(`application (pid ${pid}) switching to monitor: ${window_monitor_index}`);
+
+                        // Recreate the BackgroundActor on the right monitor. This is necessary to make sure differently
+                        // sized monitors have the correct scaled image of the wallpaper.
+                        bg_manager._monitorIndex = window_monitor_index;
+                        bg_manager._updateBackgroundActor();
+
+                        // Also to fix differently sized monitor issues.
+                        blur_actor.width = monitor.width;
+                        blur_actor.height = monitor.height;
+                    }
+
                     const frame = meta_window.get_frame_rect();
                     const buffer = meta_window.get_buffer_rect();
-                    blur_actor.x = -buffer.x;
-                    blur_actor.y = -buffer.y;
+                    blur_actor.x = monitor.x - buffer.x;
+                    blur_actor.y = monitor.y - buffer.y;
+
                     // set_clip(x-offset, y-offset, width, height)
-                    blur_actor.set_clip(frame.x, frame.y, frame.width, frame.height);
+                    blur_actor.set_clip(frame.x - monitor.x, frame.y - monitor.y, frame.width, frame.height);
                 } else {
                     const allocation = this.compute_allocation(meta_window);
                     blur_actor.x = allocation.x;
