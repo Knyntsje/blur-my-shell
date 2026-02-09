@@ -16,6 +16,9 @@ const PANEL_STYLES = [
     "contrasted-panel"
 ];
 
+// global listener, so we don't miss the panel destruction event
+let isMainPanelAlive = true;
+Main.panel.connect('destroy', () => isMainPanelAlive = false);
 
 export const PanelBlur = class PanelBlur {
     constructor(connections, settings, effects_manager) {
@@ -28,6 +31,11 @@ export const PanelBlur = class PanelBlur {
     }
 
     enable() {
+        if (this.enabled) {
+            this._log("blur already enabled");
+            return;
+        }
+
         this._log("blurring top panel");
 
         // check for panels when Dash to Panel is activated
@@ -64,6 +72,11 @@ export const PanelBlur = class PanelBlur {
     }
 
     reset() {
+        if (!this.enabled) {
+            this._log("reset called but blur is not enabled");
+            return;
+        }
+
         this._log("resetting...");
 
         this.disable();
@@ -77,7 +90,7 @@ export const PanelBlur = class PanelBlur {
             // blur already existing ones
             if (global.dashToPanel.panels)
                 this.blur_dtp_panels();
-        } else {
+        } else if (isMainPanelAlive) {
             // if no dash-to-panel, blur the main and only panel
             this.maybe_blur_panel(Main.panel);
         }
@@ -107,6 +120,8 @@ export const PanelBlur = class PanelBlur {
                     .includes(Main.panel)
                 &&
                 this.settings.dash_to_panel.BLUR_ORIGINAL_PANEL
+                &&
+                isMainPanelAlive
             )
                 this.maybe_blur_panel(Main.panel);
 
@@ -385,6 +400,11 @@ export const PanelBlur = class PanelBlur {
 
     /// Update the css classname of the panel for light theme
     update_light_text_classname(disable = false) {
+        if (!isMainPanelAlive) {
+            this._log("cannot update light text classname, Main.panel is not alive");
+            return;
+        }
+
         if (this.settings.panel.FORCE_LIGHT_TEXT && !disable)
             Main.panel.add_style_class_name("panel-light-text");
         else
@@ -416,7 +436,7 @@ export const PanelBlur = class PanelBlur {
     /// Update the visibility of the blur effect
     update_visibility() {
         if (
-            Main.panel.has_style_pseudo_class('overview')
+            isMainPanelAlive && Main.panel.has_style_pseudo_class('overview')
             || !Main.sessionMode.hasWindows
         ) {
             this.actors_list.forEach(
@@ -541,6 +561,11 @@ export const PanelBlur = class PanelBlur {
     }
 
     disable() {
+        if (!this.enabled) {
+            this._log("blur already removed");
+            return;
+        }
+
         this._log("removing blur from top panel");
 
         this.disconnect_from_windows_and_overview();
