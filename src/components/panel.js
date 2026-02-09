@@ -92,14 +92,14 @@ export const PanelBlur = class PanelBlur {
             if (!global.dashToPanel?.panels) {
                 return GLib.SOURCE_REMOVE;
             }
-    
+
             this._log("Blurring Dash to Panel panels after idle.");
-    
+
             // blur every panel found
             global.dashToPanel.panels.forEach(p => {
                 this.maybe_blur_panel(p.panel);
             });
-    
+
             // if main panel is not included in the previous panels, blur it
             if (
                 !global.dashToPanel.panels
@@ -109,7 +109,7 @@ export const PanelBlur = class PanelBlur {
                 this.settings.dash_to_panel.BLUR_ORIGINAL_PANEL
             )
                 this.maybe_blur_panel(Main.panel);
-    
+
             return GLib.SOURCE_REMOVE;
         });
     };
@@ -251,8 +251,16 @@ export const PanelBlur = class PanelBlur {
             let y = p_y + p_p_y - monitor.y + (height - panel.height) / 2;
 
             background.set_clip(x, y, panel.width, panel.height);
-            background.x = (width - panel.width) / 2 - x;
-            background.y = .5 + (height - panel.height) / 2 - y;
+          background.x = (width - panel.width) / 2 - x;
+
+          if (monitor.x < Main.layoutManager.primaryMonitor.x) {
+            background.x += 1;
+          }
+          else if (monitor.x > Main.layoutManager.primaryMonitor.x) {
+            background.x -= 1;
+          }
+
+            background.y = (height - panel.height) / 2 - y;
         } else {
             background.x = panel.x;
             background.y = panel.y;
